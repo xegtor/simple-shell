@@ -11,18 +11,21 @@ void sigint_handler(int signum) {
     ctrl_c = 1;
 }
 
-int is_valid_cmd()
+int is_valid_cmd();
 
-        int main() {
+int main() {
     string input;
     signal(SIGINT, sigint_handler); //registering the ctrl+c signal
-    while(!ctrl_c){
+    while(!ctrl_c) {
         int cmd_valid = 0;
-        while(!cmd_valid)
+        while (!cmd_valid){
             printf("simple-shell> ");
-        if (fgets(input, sizeof(input), stdin) == NULL){
-            printf("\n");
-            break;
+            if (fgets(input, sizeof(input), stdin) == NULL) {
+                printf("\n");
+                break;
+            }
+            input[strcspn(input, "\n")] = '\0';
+            
         }
     }
     return 0;
