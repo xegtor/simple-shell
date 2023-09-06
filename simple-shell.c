@@ -25,7 +25,11 @@ int main() {
                 break;
             }
             input[strcspn(input, "\n")] = '\0';
-            
+            // Check if the input is empty (just Enter was pressed)
+            if (strlen(input) == 0) {
+                continue;  // Prompt for input again
+            }
+            char* command = strtok()
         }
     }
     return 0;
