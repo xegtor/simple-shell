@@ -12,6 +12,8 @@ void sigint_handler(int signum);
 int is_valid_cmd(char* input);
 void ls(char* input);
 char** return_args(char* input);
+void echo(char* input);
+void wc(char* input);
 
 int main() {
     int num = 0;
@@ -42,6 +44,13 @@ int main() {
             case 14:
                 ls(input);
                 break;
+            case 13:
+                echo(input);
+                break;
+            case 12:
+                wc(input);
+                break;
+
         }
     }
     return 0;
@@ -126,4 +135,44 @@ char** return_args(char* input){
     }
     args[count] = NULL;
     return args;
+}
+
+void echo(char* input){
+    char* input_copy = strdup(input);
+    char* command = NULL;
+    char* argument = NULL;
+    char* posi = strchr(input_copy, ' ');
+    if(posi != NULL){
+        *posi = '\0';
+        command = strdup(input_copy);
+        argument = strdup(posi+1);
+    }
+    char* args[] = {command, argument, NULL};
+    pid_t child_pid;
+    child_pid = fork();
+    if(child_pid == -1){
+        perror("fork");
+        return;
+    }
+    if(child_pid == 0){
+        int l = execvp(command,args);
+        if(l == -1){
+            perror("execvp");
+            return;
+        }
+    }
+    else{
+        int status;
+        if(waitpid(child_pid,&status, 0) == -1){
+            perror("waitpid");
+            return;
+        }
+//        if (WIFEXITED(status)) {
+//            printf("Child process exited with status %d\n", WEXITSTATUS(status));
+//        }
+    }
+}
+
+void wc(char* input){
+
 }
