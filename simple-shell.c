@@ -56,7 +56,8 @@ void sigint_handler(int signum) {
 }
 
 int is_valid_cmd(char* input){
-    char* token = strtok(input, " ");
+    char* input_copy = strdup(input);
+    char* token = strtok(input_copy, " ");
     if(input[0] == '.' && input[1] == '/') return 1; // returns 1 for './' cmd
     else if(strcmp(token,"cd") == 0) return 2; //returns 2 for 'cd' cmd
     else if(strcmp(token, "mkdir") == 0) return 3; // returns 3 for 'mkdir' cmd
@@ -97,9 +98,9 @@ void ls(char* input){
             perror("waitpid");
             return;
         }
-        if (WIFEXITED(status)) {
-            printf("Child process exited with status %d\n", WEXITSTATUS(status));
-        }
+//        if (WIFEXITED(status)) {
+//            printf("Child process exited with status %d\n", WEXITSTATUS(status));
+//        }
     }
 }
 
@@ -115,7 +116,6 @@ char** return_args(char* input){
             return (char **) "error";
         }
         args[count] = strdup(argument);
-        printf("args[%d] = %s\n", count, args[count]); // Debug print
         count++;
         argument = strtok(NULL, " ");
     }
@@ -125,9 +125,5 @@ char** return_args(char* input){
         return (char **) "error";
     }
     args[count] = NULL;
-    printf("Contents of args array:\n");
-    for (int i = 0; args[i] != NULL; i++) {
-        printf("args[%d] = %s\n", i, args[i]);
-    }
     return args;
 }
