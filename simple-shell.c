@@ -4,42 +4,83 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <time.h>
 
+typedef struct History{
+    char command[1000000];
+    pid_t child_pid;
+    time_t time;
+    double exec_time;
+} History;
+
+History history[100];
 volatile sig_atomic_t ctrl_c = 0;
-char history[100][1000000];
+int hist_indx = 0;
+
+enum {
+    INVALID_CMD = 0,
+    DOT_SLASH_CMD,
+    CD_CMD,
+    MKDIR_CMD,
+    RMDIR_CMD,
+    RM_CMD,
+    MV_CMD,
+    CP_CMD,
+    PWD_CMD,
+    UNIQ_CMD,
+    SORT_CMD,
+    GREP_CMD,
+    WC_CMD,
+    ECHO_CMD,
+    LS_CMD,
+    HISTORY_CMD
+};
 
 void sigint_handler(int signum);
 int is_valid_cmd(char* input);
-void ls(char* input);
 char** return_args(char* input);
+void ls(char* input);
 void echo(char* input);
 void wc(char* input);
+void hist();
 
 int main() {
-    int num = 0;
     char input[1000000];
+    time_t input_time;
+    clock_t start,end;
+
     signal(SIGINT, sigint_handler); //registering the ctrl+c signal
-    while(!ctrl_c) {
+    while(!ctrl_c){
         int cmd = 0;
         while (!cmd){
             printf("simple-shell> ");
             if (fgets(input, sizeof(input), stdin) == NULL) {
                 printf("\n");
                 break;
-            }
+            }   
+            //Taking command as input
+            
+            time(&input_time);
+            //Noting time of the input 
+
             input[strcspn(input, "\n")] = '\0';
-            // Check if the input is empty (just Enter was pressed)
+            // Check if the input is empty
+            
             if (strlen(input) == 0) {
-                continue;  // Prompt for input again
+                continue;
             }
-            strcpy(history[num++],input);
-            if(strchr(input, '|') == NULL) cmd = is_valid_cmd(input);
-            else cmd = 15; // cmd is 15 when pipelining is detected
-            if(cmd == 0) printf("Invalid command. Please try again.\n");
+            // Prompt for input again
+
+            if(strchr(input, '|') == NULL) cmd = is_valid_cmd(input); //Pipeline check
+            else cmd = 16;
+            
+            if(cmd == 0) printf("Invalid command. Please try again.\n"); //Invalid Command
         }
+
+        start = clock();
         switch(cmd){
-            case 16:
-                for (int j = 0; j < num; ++j) printf("%s\n",history[j]);
+            case 15:
+                hist();
                 break;
             case 14:
                 ls(input);
@@ -52,6 +93,13 @@ int main() {
                 break;
 
         }
+        end = clock();
+        
+        history[hist_indx].exec_time = ((double) (end - start))/CLOCKS_PER_SEC;
+        history[hist_indx].time = input_time;
+        strcpy(history[hist_indx].command,input);
+
+        hist_indx++;
     }
     return 0;
 }
@@ -61,31 +109,94 @@ void sigint_handler(int signum) {
     (void)signum;  // Suppress unused variable warning
     ctrl_c = 1;
     printf("\n");
+    for (int i=0; i<hist_indx; i++){
+        printf("Command: %s\n", history[i].command);
+        printf("Child PID: %d\n", history[i].child_pid);
+        printf("Time: %s", ctime(&history[i].time));
+        printf("Execution Time: %lf\n", history[i].exec_time);
+    }
+    printf("\n");
     exit(0);  // Terminate the program immediately
 }
 
 int is_valid_cmd(char* input){
+    // Create an array of valid command strings
+    const char* valid_cmds[] = {
+        "",
+        "./",
+        "cd",
+        "mkdir",
+        "rmdir",
+        "rm",
+        "mv",
+        "cp",
+        "pwd",
+        "uniq",
+        "sort",
+        "grep",
+        "wc",
+        "echo",
+        "ls",
+        "history"
+    };
+
+    // Tokenize the input to get the first word (command)
     char* input_copy = strdup(input);
-    char* token = strtok(input_copy, " ");
-    if(input[0] == '.' && input[1] == '/') return 1; // returns 1 for './' cmd
-    else if(strcmp(token,"cd") == 0) return 2; //returns 2 for 'cd' cmd
-    else if(strcmp(token, "mkdir") == 0) return 3; // returns 3 for 'mkdir' cmd
-    else if(strcmp(token,"rmdir") == 0) return 4; // returns 4 for 'rmdir' cmd
-    else if(strcmp(token,"rm") == 0) return 5; // returns 5 for 'rm' cmd
-    else if(strcmp(token,"mv") == 0) return 6; // returns 6 for 'mv' cmd
-    else if(strcmp(token,"cp") == 0) return 7; // returns 7 for 'cp' cmd
-    else if(strcmp(token,"pwd") == 0) return 8; // returns 8 for 'pwd' cmd
-    else if(strcmp(token,"uniq") == 0) return 9; // returns 9 for 'uniq' cmd
-    else if(strcmp(token,"sort") == 0) return 10; // returns 10 for 'sort' cmd
-    else if(strcmp(token,"grep") == 0) return 11; // returns 11 for 'grep' cmd
-    else if(strcmp(token,"wc") == 0) return 12; // returns 12 for 'wc' cmd
-    else if(strcmp(token,"echo") == 0) return 13; // returns 13 for 'echo' cmd
-    else if(strcmp(token,"ls") == 0) return 14; // returns 14 for 'ls' cmd
-    else if(strcmp(token,"history") == 0) return 16; // returns 16 for 'history' cmd
-    else return 0; // invalid cmd
+    char* cmd_header = strtok(input_copy, " ");
+    // Iterate through the valid command strings and check for a match
+    for (int i = 1; i <= HISTORY_CMD; i++) {
+        if (strcmp(cmd_header, valid_cmds[i]) == 0) {
+            free(input_copy); // Free the allocated memory
+            return i;
+        }
+    }
+    // Free the allocated memory and return 0 for an invalid command
+    free(input_copy);
+    return INVALID_CMD;
 }
 
-void ls(char* input){
+char** return_args(char* input) {
+    char** args = NULL;
+    int count = 0;
+    char* input_copy = strdup(input);
+
+    if (input_copy == NULL) {
+        perror("strdup");
+        return NULL;
+    }
+
+    char* token = strtok(input_copy, " ");
+    
+    while (token != NULL) {
+        args = realloc(args, (count + 2) * sizeof(char*)); // +2 for the new argument and NULL
+        if (args == NULL) {
+            perror("reallocate");
+            free(input_copy);
+            return NULL;
+        }
+
+        args[count] = strdup(token);
+
+        if (args[count] == NULL) {
+            perror("strdup");
+            free(input_copy);
+            for (int i = 0; i < count; i++) {
+                free(args[i]);
+            }
+            free(args);
+            return NULL;
+        }
+
+        count++;
+        args[count] = NULL; // Ensure the array is NULL-terminated
+        token = strtok(NULL, " ");
+    }
+
+    free(input_copy);
+    return args;
+}
+
+void ls(char* input) {
     pid_t child_pid;
     child_pid = fork();
     if(child_pid == -1){
@@ -104,75 +215,81 @@ void ls(char* input){
     else{
         int status;
         if(waitpid(child_pid,&status, 0) == -1){
-            perror("waitpid");
+            perror("Waitpid");
             return;
         }
-//        if (WIFEXITED(status)) {
-//            printf("Child process exited with status %d\n", WEXITSTATUS(status));
-//        }
+       if (WIFEXITED(status)) {
+            history[hist_indx].child_pid = child_pid;
+            //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+       }
     }
 }
 
-char** return_args(char* input){
-    char** args = NULL;
-    int count = 0;
+void echo(char* input) {
+    // Tokenize the input by space
     char* input_copy = strdup(input);
-    char* argument = strtok(input_copy," ");
-    while(argument != NULL){
-        args = realloc(args, (count + 1) * sizeof(char*));
-        if (args == NULL) {
-            perror("reallocate");
-            return (char **) "error";
-        }
-        args[count] = strdup(argument);
-        count++;
-        argument = strtok(NULL, " ");
-    }
-    args = realloc(args, (count + 1) * sizeof(char*));
-    if (args == NULL) {
-        perror("reallocate");
-        return (char **) "error";
-    }
-    args[count] = NULL;
-    return args;
-}
 
-void echo(char* input){
-    char* input_copy = strdup(input);
-    char* command = NULL;
-    char* argument = NULL;
-    char* posi = strchr(input_copy, ' ');
-    if(posi != NULL){
-        *posi = '\0';
-        command = strdup(input_copy);
-        argument = strdup(posi+1);
+    if (input_copy == NULL) {
+        perror("strdup");
     }
+
+    char* command = strtok(input_copy, " \t\n");
+    char* argument = strtok(NULL, "\n");
+
+    // Create an array for the command and its argument
     char* args[] = {command, argument, NULL};
-    pid_t child_pid;
-    child_pid = fork();
-    if(child_pid == -1){
+
+    pid_t child_pid = fork();
+    
+    if (child_pid == -1) {
         perror("fork");
         return;
     }
-    if(child_pid == 0){
-        int l = execvp(command,args);
-        if(l == -1){
-            perror("execvp");
-            return;
-        }
-    }
-    else{
+
+    if (child_pid == 0) { // Child process
+        // Execute the command with arguments
+        execvp(command, args);
+        
+        // If execvp returns, there was an error
+        perror("execvp");
+        exit(EXIT_FAILURE);
+    } 
+    else {
         int status;
-        if(waitpid(child_pid,&status, 0) == -1){
+        if (waitpid(child_pid, &status, 0) == -1) {
             perror("waitpid");
             return;
         }
-//        if (WIFEXITED(status)) {
-//            printf("Child process exited with status %d\n", WEXITSTATUS(status));
-//        }
+        if (WIFEXITED(status)) {
+            history[hist_indx].child_pid = child_pid;
+            // printf("Child process exited with status %d\n", WEXITSTATUS(status));
+        }
     }
 }
 
-void wc(char* input){
+void hist(){
+    pid_t child_pid = fork();
+
+    if (child_pid == -1) {
+        perror("fork");
+        return;
+    }
+
+    if (child_pid == 0) {
+        for (int i=0; i<hist_indx; i++){
+            printf("%s\n", history[i].command);
+        }
+        exit(0);
+    } 
+    else {
+        int status;
+
+        waitpid(child_pid, &status, 0);
+        history[hist_indx].child_pid = child_pid;
+        // printf("Child PID: %d\n", child_pid);
+    }
+}
+
+void wc(char* input) {
 
 }
