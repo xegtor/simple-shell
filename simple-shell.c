@@ -206,11 +206,11 @@ void ls(char* input) {
     if(child_pid == 0){
         char** args = return_args(input);
         args[0] = "bin/ls";
-        int l = execv("/bin/ls",args);
-        if(l == -1){
-            perror("execv");
-            return;
-        }
+        
+        execv("/bin/ls",args);
+        perror("execv");
+        exit(EXIT_FAILURE);
+
     }
     else{
         int status;
@@ -226,7 +226,6 @@ void ls(char* input) {
 }
 
 void echo(char* input) {
-    // Tokenize the input by space
     char* input_copy = strdup(input);
 
     if (input_copy == NULL) {
@@ -291,5 +290,10 @@ void hist(){
 }
 
 void wc(char* input) {
-
+    pid_t child_pid = fork();
+    
+    if (child_pid == -1){
+        perror("fork");
+        return;
+    }
 }
