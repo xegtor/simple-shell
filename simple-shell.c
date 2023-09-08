@@ -35,7 +35,7 @@ enum {
     LS_CMD,
     HISTORY_CMD,
     PIPE_CMD
-};
+};  //Commands enum
 
 void sigint_handler(int signum);
 int is_valid_cmd(char* input);
@@ -51,7 +51,7 @@ int main() {
     time_t input_time;
     clock_t start,end;
 
-    signal(SIGINT, sigint_handler); //registering the ctrl+c signal
+    signal(SIGINT, sigint_handler); //Registering the ctrl+c signal
     while(!ctrl_c){
         int cmd = 0;
         while (!cmd){
@@ -137,17 +137,17 @@ int main() {
         history[hist_indx].time = input_time;
         if (cmd != PIPE_CMD) strcpy(history[hist_indx].command,input);
 
+        //Appending to history array
         hist_indx++;
     }
     return 0;
 }
 
-// Signal handler function to catch Ctrl+C
 void sigint_handler(int signum) {
-    (void)signum;  // Suppress unused variable warning
+    (void)signum;  //Suppress unused variable warning
     ctrl_c = 1;
     printf("\n\n");
-    for (int i=0; i<hist_indx; i++){
+    for (int i=0; i<hist_indx; i++){    //Printing the command, PID, input time, exec time
         printf("\033[1;32mCommand:\033[0m %s\n", history[i].command);
         printf("\033[1;32mChild PID:\033[0m %d\n", history[i].child_pid);
         printf("\033[1;32mTime:\033[0m %s", ctime(&history[i].time));
@@ -157,7 +157,6 @@ void sigint_handler(int signum) {
 }
 
 int is_valid_cmd(char* input){
-    // Create an array of valid command strings
     const char* valid_cmds[] = {
         "",
         "./",
@@ -175,20 +174,20 @@ int is_valid_cmd(char* input){
         "echo",
         "ls",
         "history"
-    };
+    };  //Valid Commands Array
 
-    // Tokenize the input to get the first word (command)
+    //Tokenize the input to get the command header
     char* input_copy = strdup(input);
     char* cmd_header = strtok(input_copy, " ");
-    // Iterate through the valid command strings and check for a match
+    //Iterate through the valid command strings and check for a match
     for (int i = 1; i <= HISTORY_CMD; i++) {
         if (strcmp(cmd_header, valid_cmds[i]) == 0) {
-            free(input_copy); // Free the allocated memory
+            free(input_copy); //Freeing
             return i;
         }
     }
     if ((strncmp(input, "./", 2) == 0)) return 1;
-    // Free the allocated memory and return 0 for an invalid command
+    //Returning 0 for invalid command
     free(input_copy);
     return INVALID_CMD;
 }
@@ -206,7 +205,7 @@ char** return_args(char* input) {
     char* token = strtok(input_copy, " ");
     
     while (token != NULL) {
-        args = realloc(args, (count + 2) * sizeof(char*)); // +2 for the new argument and NULL
+        args = realloc(args, (count + 2) * sizeof(char*));
         if (args == NULL) {
             perror("reallocate");
             free(input_copy);
@@ -226,7 +225,7 @@ char** return_args(char* input) {
         }
 
         count++;
-        args[count] = NULL; // Ensure the array is NULL-terminated
+        args[count] = NULL;
         token = strtok(NULL, " ");
     }
 
@@ -271,7 +270,6 @@ void echo(char* input) {
     char* command = strtok(input_copy, " \t\n");
     char* argument = strtok(NULL, "\n");
 
-    // Create an array for the command and its argument
     char* args[] = {command, argument, NULL};
     pid_t child_pid = fork();
     if (child_pid == -1) {
@@ -279,10 +277,9 @@ void echo(char* input) {
         return;
     }
 
-    if (child_pid == 0) { // Child process
-        // Execute the command with arguments
+    if (child_pid == 0) {
         execvp(command, args);
-        // If execvp returns, there was an error
+        //Execvp error
         perror("execvp");
         exit(EXIT_FAILURE);
     } 
