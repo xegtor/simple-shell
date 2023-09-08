@@ -20,7 +20,7 @@ int hist_indx = 0;
 enum {
     INVALID_CMD = 0,
     DOT_SLASH_CMD,
-    CD_CMD,
+    CAT_CMD,
     MKDIR_CMD,
     RMDIR_CMD,
     RM_CMD,
@@ -39,9 +39,8 @@ enum {
 void sigint_handler(int signum);
 int is_valid_cmd(char* input);
 char** return_args(char* input);
-void ls(char* input);
+void execvp_cmd(char* input);
 void echo(char* input);
-void wc(char* input);
 void hist();
 
 int main() {
@@ -53,7 +52,7 @@ int main() {
     while(!ctrl_c){
         int cmd = 0;
         while (!cmd){
-            printf("simple-shell> ");
+            printf("\033[1;35msimple-shell> \033[0m");
             if (fgets(input, sizeof(input), stdin) == NULL) {
                 printf("\n");
                 break;
@@ -79,19 +78,48 @@ int main() {
 
         start = clock();
         switch(cmd){
-            case 15:
+            case HISTORY_CMD:
                 hist();
                 break;
-            case 14:
-                ls(input);
+            case LS_CMD:
+                execvp_cmd(input);
                 break;
-            case 13:
+            case ECHO_CMD:
                 echo(input);
                 break;
-            case 12:
-                wc(input);
+            case WC_CMD:
+                execvp_cmd(input);
                 break;
-
+            case MKDIR_CMD:
+                execvp_cmd(input);
+                break;
+            case RMDIR_CMD:
+                execvp_cmd(input);
+                break;
+            case RM_CMD:
+                execvp_cmd(input);
+                break;
+            case MV_CMD:
+                execvp_cmd(input);
+                break;
+            case CP_CMD:
+                execvp_cmd(input);
+                break;
+            case PWD_CMD:
+                execvp_cmd(input);
+                break;
+            case UNIQ_CMD:
+                execvp_cmd(input);
+                break;
+            case SORT_CMD:
+                execvp_cmd(input);
+                break;
+            case GREP_CMD:
+                execvp_cmd(input);
+                break;
+            case CAT_CMD:
+                execvp_cmd(input);
+                break;
         }
         end = clock();
         
@@ -108,14 +136,13 @@ int main() {
 void sigint_handler(int signum) {
     (void)signum;  // Suppress unused variable warning
     ctrl_c = 1;
-    printf("\n");
+    printf("\n\n");
     for (int i=0; i<hist_indx; i++){
-        printf("Command: %s\n", history[i].command);
-        printf("Child PID: %d\n", history[i].child_pid);
-        printf("Time: %s", ctime(&history[i].time));
-        printf("Execution Time: %lf\n", history[i].exec_time);
+        printf("\033[1;32mCommand:\033[0m %s\n", history[i].command);
+        printf("\033[1;32mChild PID:\033[0m %d\n", history[i].child_pid);
+        printf("\033[1;32mTime:\033[0m %s", ctime(&history[i].time));
+        printf("\033[1;32mExecution Time:\033[0m %lf\n\n", history[i].exec_time);
     }
-    printf("\n");
     exit(0);  // Terminate the program immediately
 }
 
@@ -124,7 +151,7 @@ int is_valid_cmd(char* input){
     const char* valid_cmds[] = {
         "",
         "./",
-        "cd",
+        "cat",
         "mkdir",
         "rmdir",
         "rm",
@@ -196,7 +223,7 @@ char** return_args(char* input) {
     return args;
 }
 
-void ls(char* input) {
+void execvp_cmd(char* input) {
     pid_t child_pid;
     child_pid = fork();
     if(child_pid == -1){
@@ -205,10 +232,9 @@ void ls(char* input) {
     }
     if(child_pid == 0){
         char** args = return_args(input);
-        args[0] = "bin/ls";
         
-        execv("/bin/ls",args);
-        perror("execv");
+        execvp(args[0],args);
+        perror("execvp");
         exit(EXIT_FAILURE);
 
     }
@@ -289,11 +315,3 @@ void hist(){
     }
 }
 
-void wc(char* input) {
-    pid_t child_pid = fork();
-    
-    if (child_pid == -1){
-        perror("fork");
-        return;
-    }
-}
