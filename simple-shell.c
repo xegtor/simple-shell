@@ -42,6 +42,7 @@ char** return_args(char* input);
 void execvp_cmd(char* input);
 void echo(char* input);
 void hist();
+void dot_slash(char* input);
 
 int main() {
     char input[1000000];
@@ -120,6 +121,9 @@ int main() {
             case CAT_CMD:
                 execvp_cmd(input);
                 break;
+            case DOT_SLASH_CMD:
+                dot_slash(input);
+                break;
         }
         end = clock();
         
@@ -177,6 +181,7 @@ int is_valid_cmd(char* input){
             return i;
         }
     }
+    if ((strncmp(input, "./", 2) == 0)) return 1;
     // Free the allocated memory and return 0 for an invalid command
     free(input_copy);
     return INVALID_CMD;
@@ -315,3 +320,27 @@ void hist(){
     }
 }
 
+void dot_slash(char* input){
+    pid_t child_pid;
+    child_pid = fork();
+    if(child_pid == -1){
+        perror("fork");
+        return;
+    }
+    if (child_pid == 0){
+        execl(input, input, NULL);
+        perror("execl");
+        exit(EXIT_FAILURE);
+    }else{
+        int status;
+        if(waitpid(child_pid, &status, 0) == -1){
+            perror("waitpid");
+            return;
+        }
+        if (WIFEXITED(status)) {
+            history[hist_indx].child_pid = child_pid;
+            // printf("Child process exited with status %d\n", WEXITSTATUS(status));
+        }
+    }
+    printf("\n");
+}
