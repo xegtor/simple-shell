@@ -57,6 +57,17 @@ int main() {
 
     signal(SIGINT, sigint_handler); //Registering the ctrl+c signal
     while(!ctrl_c){
+        while (1) {
+            pid_t bg_pid = waitpid(-1, NULL, WNOHANG);
+            if (bg_pid <= 0) {
+                break;
+            }
+            printf("[%d] done\n", bg_pid);
+            history[bg_process_indx].child_pid = bg_pid;
+            
+            background_process = 0;
+        }   //Background process check
+
         int cmd = 0;
         while (!cmd){
             printf("\033[1;35msimple-shell> \033[0m");
@@ -156,19 +167,6 @@ int main() {
 
         //Appending to history array
         hist_indx++;
-
-        while (background_process) {
-            usleep(10000);
-            
-            pid_t bg_pid = waitpid(-1, NULL, WNOHANG);
-            if (bg_pid <= 0) {
-                break;
-            }
-            printf("[%d] done\n", bg_pid);
-            history[bg_process_indx].child_pid = bg_pid;
-            
-            background_process = 0;
-        }   //Background process check
     }
     return 0;
 }
