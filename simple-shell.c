@@ -16,6 +16,8 @@ typedef struct History{
 History history[100];
 volatile sig_atomic_t ctrl_c = 0;
 int hist_indx = 0;
+int background_process = 0;
+int bg_process_indx = 0;
 
 enum {
     INVALID_CMD = 0,
@@ -34,7 +36,8 @@ enum {
     ECHO_CMD,
     LS_CMD,
     HISTORY_CMD,
-    PIPE_CMD
+    PIPE_CMD,
+    SCRIPT_CMD
 };  //Commands enum
 
 void sigint_handler(int signum);
@@ -45,6 +48,7 @@ void echo(char* input);
 void hist();
 void dot_slash(char* input);
 void pipe_cmd(char* input);
+void script(char* input);
 
 int main() {
     char input[1000000];
@@ -68,6 +72,17 @@ int main() {
             input[strcspn(input, "\n")] = '\0';
             // Check if the input is empty
             
+            if (input[strlen(input) - 1] == '&') {
+                strcpy(history[hist_indx].command, input);
+                bg_process_indx = hist_indx;
+                background_process = 1;
+
+                input[strlen(input) - 1] = '\0';
+            }
+            else{
+                background_process = 0;
+            }
+            
             if (strlen(input) == 0) {
                 continue;
             }
@@ -80,9 +95,11 @@ int main() {
 
         start = clock();
         switch(cmd){
+            case SCRIPT_CMD:
+                script(input);
+                break;
             case PIPE_CMD:
                 strcpy(history[hist_indx].command,input);
-                
                 pipe_cmd(input);
                 break;
             case HISTORY_CMD:
@@ -135,10 +152,23 @@ int main() {
         
         history[hist_indx].exec_time = ((double) (end - start))/CLOCKS_PER_SEC;
         history[hist_indx].time = input_time;
-        if (cmd != PIPE_CMD) strcpy(history[hist_indx].command,input);
+        if (cmd != PIPE_CMD && !background_process) strcpy(history[hist_indx].command,input);
 
         //Appending to history array
         hist_indx++;
+
+        while (background_process) {
+            usleep(10000);
+            
+            pid_t bg_pid = waitpid(-1, NULL, WNOHANG);
+            if (bg_pid <= 0) {
+                break;
+            }
+            printf("[%d] done\n", bg_pid);
+            history[bg_process_indx].child_pid = bg_pid;
+            
+            background_process = 0;
+        }   //Background process check
     }
     return 0;
 }
@@ -173,7 +203,7 @@ int is_valid_cmd(char* input){
         "wc",
         "echo",
         "ls",
-        "history"
+        "history",
     };  //Valid Commands Array
 
     //Tokenize the input to get the command header
@@ -187,6 +217,8 @@ int is_valid_cmd(char* input){
         }
     }
     if ((strncmp(input, "./", 2) == 0)) return 1;
+    if ((strncmp(input, "sh ", 3) == 0)) return 17;
+    
     //Returning 0 for invalid command
     free(input_copy);
     return INVALID_CMD;
@@ -249,15 +281,17 @@ void execvp_cmd(char* input) {
 
     }
     else{
-        int status;
-        if(waitpid(child_pid,&status, 0) == -1){
-            perror("Waitpid");
-            return;
+        if (!background_process){
+            int status;
+            if(waitpid(child_pid,&status, 0) == -1){
+                perror("Waitpid");
+                return;
+            }
+            if (WIFEXITED(status)) {
+                history[hist_indx].child_pid = child_pid;
+                //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            }
         }
-       if (WIFEXITED(status)) {
-            history[hist_indx].child_pid = child_pid;
-            //printf("Child process exited with status %d\n", WEXITSTATUS(status));
-       }
     }
 }
 
@@ -284,14 +318,16 @@ void echo(char* input) {
         exit(EXIT_FAILURE);
     } 
     else {
-        int status;
-        if (waitpid(child_pid, &status, 0) == -1) {
-            perror("waitpid");
-            return;
-        }
-        if (WIFEXITED(status)) {
-            history[hist_indx].child_pid = child_pid;
-            // printf("Child process exited with status %d\n", WEXITSTATUS(status));
+        if (!background_process){
+            int status;
+            if (waitpid(child_pid, &status, 0) == -1) {
+                perror("waitpid");
+                return;
+            }
+            if (WIFEXITED(status)) {
+                history[hist_indx].child_pid = child_pid;
+                // printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            }
         }
     }
 }
@@ -311,11 +347,13 @@ void hist(){
         exit(0);
     } 
     else {
-        int status;
+        if (!background_process){
+            int status;
 
-        waitpid(child_pid, &status, 0);
-        history[hist_indx].child_pid = child_pid;
-        // printf("Child PID: %d\n", child_pid);
+            waitpid(child_pid, &status, 0);
+            history[hist_indx].child_pid = child_pid;
+            // printf("Child PID: %d\n", child_pid);
+        }
     }
 }
 
@@ -330,15 +368,18 @@ void dot_slash(char* input){
         execl(input, input, NULL);
         perror("execl");
         exit(EXIT_FAILURE);
-    }else{
-        int status;
-        if(waitpid(child_pid, &status, 0) == -1){
-            perror("waitpid");
-            return;
-        }
-        if (WIFEXITED(status)) {
-            history[hist_indx].child_pid = child_pid;
-            //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+    }
+    else{
+        if (!background_process){
+            int status;
+            if(waitpid(child_pid, &status, 0) == -1){
+                perror("waitpid");
+                return;
+            }
+            if (WIFEXITED(status)) {
+                history[hist_indx].child_pid = child_pid;
+                //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            }
         }
     }
     printf("\n");
@@ -393,7 +434,7 @@ void pipe_cmd(char* input) {
                 execlp("sh", "sh", "-c", commands[i], NULL);
                 perror("execlp");
                 exit(EXIT_FAILURE);
-            } else { // Parent process
+            } else {
                 if (pipe_fd_previous[0] != -1) {
                     close(pipe_fd_previous[0]);
                     close(pipe_fd_previous[1]);
@@ -404,28 +445,59 @@ void pipe_cmd(char* input) {
             }
         }
 
-        // Close the final pipe in the child process
         if (pipe_fd_previous[0] != -1) {
             close(pipe_fd_previous[0]);
             close(pipe_fd_previous[1]);
         }
 
-        // Wait for command child processes to finish
         for (int i = 0; i < num_cmds; i++) {
             wait(NULL);
         }
 
         exit(EXIT_SUCCESS);
-    } else { // Parent process
-        int status;
-        if (waitpid(child_pid, &status, 0) == -1) {
-            perror("waitpid");
-            exit(EXIT_FAILURE);
-        }
+    } 
+    else {
+        if (!background_process){
+            int status;
+            if (waitpid(child_pid, &status, 0) == -1) {
+                perror("waitpid");
+                exit(EXIT_FAILURE);
+            }
 
-        if (WIFEXITED(status)) {
-            history[hist_indx].child_pid = child_pid;
-            //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            if (WIFEXITED(status)) {
+                history[hist_indx].child_pid = child_pid;
+                //printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            }
+        }
+    }
+}
+
+void script(char* input) {
+    pid_t child_pid = fork();
+
+    if (child_pid == -1){
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    if (child_pid == 0){
+        execl("/bin/sh", "sh", input+3, NULL);
+
+        perror("execl");
+        exit(EXIT_FAILURE);
+    } 
+    else{
+        if (!background_process){
+            int status;
+            if (waitpid(child_pid, &status, 0) == -1) {
+                perror("waitpid");
+                exit(EXIT_FAILURE);
+            }
+
+            if (WIFEXITED(status)) {
+                history[hist_indx].child_pid = child_pid;
+                //printf("Shell script exited with status %d\n", WEXITSTATUS(status));
+            }
         }
     }
 }
