@@ -72,22 +72,17 @@ int main() {
                 continue;
             }
             // Prompt for input again
-
             if(strchr(input, '|') == NULL) cmd = is_valid_cmd(input); //Pipeline check
             else cmd = 16;
             
             if(cmd == 0) printf("Invalid command. Please try again.\n"); //Invalid Command
         }
 
-        history[hist_indx].exec_time = ((double) (end - start))/CLOCKS_PER_SEC;
-        history[hist_indx].time = input_time;
-        strcpy(history[hist_indx].command,input);
-
-        hist_indx++;
-
         start = clock();
         switch(cmd){
             case PIPE_CMD:
+                strcpy(history[hist_indx].command,input);
+                
                 pipe_cmd(input);
                 break;
             case HISTORY_CMD:
@@ -137,6 +132,12 @@ int main() {
                 break;
         }
         end = clock();
+        
+        history[hist_indx].exec_time = ((double) (end - start))/CLOCKS_PER_SEC;
+        history[hist_indx].time = input_time;
+        if (cmd != PIPE_CMD) strcpy(history[hist_indx].command,input);
+
+        hist_indx++;
     }
     return 0;
 }
