@@ -21,5 +21,12 @@
     - `./`: runs an executable file with options mimicking the Unix terminal's.
     - `history`: prints a list of all the commands the user has typed in until that point.
     - `pipe(|)`: 
-- Exiting the simple shell displays all the relevant information about the commands and the child processes in which they were executed.
+- Exiting the simple shell displays all the relevant information about the commands and the child processes they were executed.
 - can run the command in the background while the rest of the simple shell keeps going.
+## Limitation
+- `No Environment Variable Management`: Managing environment variables to customize the shell's behaviour or store data is not supported. This feature is common in Unix shells but not present here. We could not implement this because we do not have system-level access.
+- `No Custom Shell Built-Ins`: Custom shell built-ins like `cd`, `exit`, `alias`, and `export` are not implemented. These built-ins are essential for core-shell functionality but cannot be easily added using the exec family of functions.
+- `No Input/Output Redirection`: The shell lacks support for input/output redirection (<, >, >>). These features enable manipulating input/output streams, which are complex to implement with exec.
+- `No Job Control`: Job control, which allows managing background and foreground processes, suspending, resuming, and killing processes, is not implemented.
+- `Security Considerations`: The shell may have security vulnerabilities, such as limited input validation, which can pose risks if handling untrusted user inputs. Robust security mechanisms are necessary in production-grade shells.
+[## GitHub Repository](https://github.com/xegtor/simple-shell)
