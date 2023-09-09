@@ -29,4 +29,4 @@
 - `No Input/Output Redirection`: The shell lacks support for input/output redirection (<, >, >>). These features enable manipulating input/output streams, which are complex to implement with exec.
 - `No Job Control`: Job control, which allows managing background and foreground processes, suspending, resuming, and killing processes, is not implemented.
 - `Security Considerations`: The shell may have security vulnerabilities, such as limited input validation, which can pose risks if handling untrusted user inputs. Robust security mechanisms are necessary in production-grade shells.
-[## GitHub Repository](https://github.com/xegtor/simple-shell)
+## [GitHub Repository](https://github.com/xegtor/simple-shell)
